@@ -1,0 +1,54 @@
+rules:
+  - id: SEC-001
+    info:
+      name: "Hardcoded AK/SK"
+      severity: high
+      description: "Hardcoded cloud access key or secret key in source code"
+      suggestion: "Rotate the key immediately and fetch temporary credentials from backend"
+    check:
+      type: regex
+      pattern: '(?i)(access[_-]?key(?:id)?|secret[_-]?key|app[_-]?secret|api[_-]?key)\s*[:=]\s*["'']([A-Za-z0-9_\-/+=]{16,})["'']'
+      file_filter: ".*\\.(js|json|ts)$"
+
+  - id: SEC-002
+    info:
+      name: "Hardcoded JWT"
+      severity: high
+      description: "Hardcoded JWT or Bearer token"
+      suggestion: "Fetch token from secure storage or backend"
+    check:
+      type: regex
+      pattern: '(?i)(token|jwt|bearer)\s*[:=]\s*["''](eyJ[A-Za-z0-9_\-\.]+)["'']'
+      file_filter: ".*\\.(js|json|ts)$"
+
+  - id: SEC-003
+    info:
+      name: "Hardcoded DB connection string"
+      severity: high
+      description: "Database connection string with credentials exposed"
+      suggestion: "Never put DB credentials in frontend code"
+    check:
+      type: regex
+      pattern: '(?i)(mongodb|mysql|redis|postgres)(\+\w+)?://[^\s"'']+:[^\s"'']+@'
+      file_filter: ".*\\.(js|json|ts|wxml)$"
+
+  - id: SEC-004
+    info:
+      name: "Private key leak"
+      severity: high
+      description: "Private key content embedded in code"
+      suggestion: "Keep private keys on server side only"
+    check:
+      type: regex
+      pattern: '-----BEGIN (RSA |EC |DSA )?PRIVATE KEY-----'
+      file_filter: ".*"
+  - id: SEC-301
+    info:
+        name: "rich-text nodes rendered from setData"
+        severity: high
+        description: "setData writes nodes field which may feed rich-text component (XSS risk)"
+        suggestion: "Sanitize HTML with a whitelist before rendering rich-text"
+    check:
+        type: regex
+        pattern: 'setData\s*\(\s*\{[^}]*\bnodes\s*:'
+        file_filter: ".*\\.(js|ts)$"

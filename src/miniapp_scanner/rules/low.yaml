@@ -1,0 +1,46 @@
+rules:
+  - id: SEC-201
+    info:
+      name: "eval usage"
+      severity: low
+      description: "Dynamic code execution via eval"
+      suggestion: "Avoid eval"
+    check:
+      type: ast
+      ast_pattern:
+        node_type: CallExpression
+        callee_type: Identifier
+        callee_name: eval
+
+  - id: SEC-202
+    info:
+      name: "innerHTML assignment"
+      severity: low
+      description: "Direct innerHTML assignment may cause XSS"
+      suggestion: "Use textContent or sanitize first"
+    check:
+      type: ast
+      ast_pattern:
+        node_type: AssignmentExpression
+        left_property: innerHTML
+
+  - id: SEC-203
+    info:
+      name: "HTTP plaintext"
+      severity: low
+      description: "Plaintext HTTP URL detected"
+      suggestion: "Use HTTPS"
+    check:
+      type: regex
+      pattern: '["'']http://(?!localhost|127\.0\.0\.1|w3\.org)[^"'']+["'']'
+      file_filter: ".*\\.(js|json|ts|wxml|wxss)$"
+  - id: SEC-205
+    info:
+        name: "Hardcoded WeChat AppID"
+        severity: low
+        description: "WeChat AppID hardcoded in config file"
+        suggestion: "Use environment-specific config; avoid leaking AppID in public repos"
+    check:
+        type: regex
+        pattern: '["'']wx[a-f0-9]{16}["'']'
+        file_filter: ".*\\.(js|json|ts|wxml|wxss)$"

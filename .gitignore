@@ -1,0 +1,36 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+*.egg
+build/
+dist/
+.eggs/
+
+# 虚拟环境
+venv/
+.venv/
+env/
+
+# 测试与缓存
+.pytest_cache/
+.coverage
+htmlcov/
+
+# IDE
+.idea/
+.vscode/
+*.swp
+
+# 用户级配置（含密钥，绝不提交）
+.env
+*.env
+
+# 扫描产物（临时报告）
+report*.json
+*_report.md
+movie_*.md
+movie_report.md
+
+# 日志
+*.log

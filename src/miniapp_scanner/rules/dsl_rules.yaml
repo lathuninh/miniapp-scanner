@@ -1,0 +1,319 @@
+rules:
+  - id: DSL-001
+    info:
+      name: "eval with tainted arg"
+      severity: high
+      description: "Tainted data flows into eval"
+      suggestion: "Use JSON.parse; never eval user input"
+    dsl:
+      node: CallExpression
+      conditions:
+        - eq: [callee.name, "eval"]
+        - arg_tainted: [0]
+      code: "eval(tainted)"
+
+  - id: DSL-002
+    info:
+      name: "wx.request with tainted arg"
+      severity: medium
+      description: "wx.request params derived from tainted data"
+      suggestion: "Whitelist URL domain and validate param types"
+    dsl:
+      node: CallExpression
+      conditions:
+        - eq: [callee.property.name, "request"]
+        - or:
+            - arg_tainted: [0]
+            - arg_tainted: [1]
+      code: "wx.request(tainted, ...)"
+# ==================== 实用规则集 v1 ====================
+
+  - id: DSL-003
+    info:
+      name: "Sensitive data stored in local storage"
+      severity: high
+      description: "Token/password/secret written into wx.setStorage or localStorage"
+      suggestion: "Never store credentials in local storage; use backend session or wx.loginCode exchange"
+    dsl:
+      node: CallExpression
+      conditions:
+        - or:
+            - and:
+                - eq: [callee.object.name, "wx"]
+                - eq: [callee.property.name, "setStorageSync"]
+            - and:
+                - eq: [callee.object.name, "wx"]
+                - eq: [callee.property.name, "setStorage"]
+            - and:
+                - eq: [callee.object.name, "localStorage"]
+                - eq: [callee.property.name, "setItem"]
+        - or:
+            - match: [arguments.0.value, "(?i)(token|password|secret|key|credential)"]
+            - match: [arguments.0.name, "(?i)(token|password|secret|key|credential)"]
+      code: "wx.setStorageSync('token', ...)"
+
+
+
+  - id: DSL-005
+    info:
+      name: "Open redirect via navigation"
+      severity: medium
+      description: "User-controlled URL flows into wx.navigateTo/redirectTo, enabling open redirect / phishing"
+      suggestion: "Whitelist allowed page paths before navigation"
+    dsl:
+      node: CallExpression
+      conditions:
+        - eq: [callee.object.name, "wx"]
+        - or:
+            - eq: [callee.property.name, "navigateTo"]
+            - eq: [callee.property.name, "redirectTo"]
+            - eq: [callee.property.name, "reLaunch"]
+        - arg_tainted: [0]
+      code: "wx.navigateTo(tainted_url)"
+
+  - id: DSL-006
+    info:
+      name: "Prototype pollution via Object.assign"
+      severity: high
+      description: "User-controlled object merged via Object.assign / spread, may pollute prototype"
+      suggestion: "Validate keys; use Object.create(null); reject __proto__ / constructor / prototype keys"
+    dsl:
+      node: CallExpression
+      conditions:
+        - or:
+            - and:
+                - eq: [callee.object.name, "Object"]
+                - eq: [callee.property.name, "assign"]
+            - and:
+                - eq: [callee.object.name, "_"]
+                - eq: [callee.property.name, "merge"]
+            - and:
+                - eq: [callee.object.name, "_"]
+                - eq: [callee.property.name, "defaultsDeep"]
+        - or:
+            - arg_tainted: [0]
+            - arg_tainted: [1]
+      code: "Object.assign(target, tainted)"
+  # ==================== XSS 相关 ====================
+
+
+
+  - id: DSL-011
+    info:
+      name: "wx.showToast with tainted content"
+      severity: low
+      description: "User data flows into toast title"
+      suggestion: "Escape before display"
+    dsl:
+      node: CallExpression
+      conditions:
+        - eq: [ callee.object.name, "wx" ]
+        - eq: [ callee.property.name, "showToast" ]
+        - arg_tainted: [ 0 ]
+      code: "wx.showToast(tainted)"
+
+  # ==================== SSRF / 网络请求 ====================
+
+  - id: DSL-012
+    info:
+      name: "wx.request URL from user input"
+      severity: high
+      description: "User data flows into wx.request URL, potential SSRF"
+      suggestion: "Whitelist allowed domains; validate URL scheme"
+    dsl:
+      node: CallExpression
+      conditions:
+        - eq: [ callee.object.name, "wx" ]
+        - eq: [ callee.property.name, "request" ]
+        - arg_tainted: [ 0 ]
+      code: "wx.request(tainted_url)"
+
+  - id: DSL-013
+    info:
+      name: "wx.downloadFile URL from user input"
+      severity: high
+      description: "User data flows into wx.downloadFile URL"
+      suggestion: "Whitelist allowed domains"
+    dsl:
+      node: CallExpression
+      conditions:
+        - eq: [ callee.object.name, "wx" ]
+        - eq: [ callee.property.name, "downloadFile" ]
+        - arg_tainted: [ 0 ]
+      code: "wx.downloadFile(tainted_url)"
+
+  - id: DSL-014
+    info:
+      name: "wx.uploadFile URL from user input"
+      severity: high
+      description: "User data flows into wx.uploadFile URL"
+      suggestion: "Whitelist allowed domains"
+    dsl:
+      node: CallExpression
+      conditions:
+        - eq: [ callee.object.name, "wx" ]
+        - eq: [ callee.property.name, "uploadFile" ]
+        - arg_tainted: [ 0 ]
+      code: "wx.uploadFile(tainted_url)"
+
+  # ==================== 存储相关 ====================
+
+  - id: DSL-015
+    info:
+      name: "Sensitive data in wx.setStorageSync"
+      severity: high
+      description: "Token/password/secret written into wx.setStorageSync"
+      suggestion: "Never store credentials locally"
+    dsl:
+      node: CallExpression
+      conditions:
+        - eq: [ callee.object.name, "wx" ]
+        - eq: [ callee.property.name, "setStorageSync" ]
+        - or:
+            - match: [ arguments.0.value, "(?i)(token|password|secret|key|credential|auth)" ]
+            - match: [ arguments.0.name, "(?i)(token|password|secret|key|credential|auth)" ]
+      code: "wx.setStorageSync('token', ...)"
+
+  - id: DSL-016
+    info:
+      name: "Sensitive data in wx.setStorage"
+      severity: high
+      description: "Token/password/secret written into wx.setStorage"
+      suggestion: "Never store credentials locally"
+    dsl:
+      node: CallExpression
+      conditions:
+        - eq: [ callee.object.name, "wx" ]
+        - eq: [ callee.property.name, "setStorage" ]
+        - or:
+            - match: [ arguments.0.value, "(?i)(token|password|secret|key|credential|auth)" ]
+            - match: [ arguments.0.name, "(?i)(token|password|secret|key|credential|auth)" ]
+      code: "wx.setStorage({key:'token',...})"
+
+  # ==================== 原型链污染 ====================
+
+  - id: DSL-017
+    info:
+      name: "Prototype pollution via __proto__ assignment"
+      severity: high
+      description: "Direct __proto__ assignment detected"
+      suggestion: "Never assign to __proto__; use Object.create(null)"
+    dsl:
+      node: AssignmentExpression
+      conditions:
+        - or:
+            - eq: [ left.property.name, "__proto__" ]
+            - eq: [ left.property.value, "__proto__" ]
+            - eq: [ left.property.name, "prototype" ]
+            - eq: [ left.property.name, "constructor" ]
+      code: "obj.__proto__ = ..."
+
+  - id: DSL-018
+    info:
+      name: "Prototype pollution via lodash merge"
+      severity: high
+      description: "Lodash merge/defaultsDeep with user input"
+      suggestion: "Validate keys; reject dangerous property names"
+    dsl:
+      node: CallExpression
+      conditions:
+        - or:
+            - and:
+                - eq: [ callee.object.name, "_" ]
+                - eq: [ callee.property.name, "merge" ]
+            - and:
+                - eq: [ callee.object.name, "_" ]
+                - eq: [ callee.property.name, "defaultsDeep" ]
+            - and:
+                - eq: [ callee.object.name, "_" ]
+                - eq: [ callee.property.name, "set" ]
+        - or:
+            - arg_tainted: [ 0 ]
+            - arg_tainted: [ 1 ]
+      code: "_.merge(target, tainted)"
+
+  # ==================== 敏感操作 ====================
+
+  - id: DSL-019
+    info:
+      name: "wx.openDocument with user file path"
+      severity: medium
+      description: "User data flows into openDocument filePath"
+      suggestion: "Validate file path whitelist"
+    dsl:
+      node: CallExpression
+      conditions:
+        - eq: [ callee.object.name, "wx" ]
+        - eq: [ callee.property.name, "openDocument" ]
+        - arg_tainted: [ 0 ]
+      code: "wx.openDocument(tainted)"
+
+  - id: DSL-020
+    info:
+      name: "wx.navigateToMiniProgram without validation"
+      severity: high
+      description: "User data flows into navigateToMiniProgram appId/path"
+      suggestion: "Whitelist target appId"
+    dsl:
+      node: CallExpression
+      conditions:
+        - eq: [ callee.object.name, "wx" ]
+        - eq: [ callee.property.name, "navigateToMiniProgram" ]
+        - arg_tainted: [ 0 ]
+      code: "wx.navigateToMiniProgram(tainted)"
+
+  - id: DSL-021
+    info:
+      name: "wx.setClipboardData with tainted data"
+      severity: medium
+      description: "User data written into clipboard"
+      suggestion: "Validate before writing"
+    dsl:
+      node: CallExpression
+      conditions:
+        - eq: [ callee.object.name, "wx" ]
+        - eq: [ callee.property.name, "setClipboardData" ]
+        - arg_tainted: [ 0 ]
+      code: "wx.setClipboardData(tainted)"
+
+  - id: DSL-022
+    info:
+      name: "Dynamic code via new Function"
+      severity: high
+      description: "Function constructor called with tainted argument"
+      suggestion: "Never use Function constructor on user input"
+    dsl:
+      node: NewExpression
+      conditions:
+        - eq: [ callee.name, "Function" ]
+        - arg_tainted: [ 0 ]
+      code: "new Function(tainted)"
+
+  - id: DSL-023
+    info:
+      name: "eval with tainted argument (strict)"
+      severity: high
+      description: "User data flows into eval"
+      suggestion: "Use JSON.parse; never eval user input"
+    dsl:
+      node: CallExpression
+      conditions:
+        - eq: [ callee.name, "eval" ]
+        - arg_tainted: [ 0 ]
+        - not:
+            file_match: ".*\\.test\\.js$"
+      code: "eval(tainted)"
+
+  - id: DSL-024
+    info:
+      name: "wx.showModal with tainted content"
+      severity: low
+      description: "User data displayed in modal content"
+      suggestion: "Escape before display"
+    dsl:
+      node: CallExpression
+      conditions:
+        - eq: [ callee.object.name, "wx" ]
+        - eq: [ callee.property.name, "showModal" ]
+        - arg_tainted: [ 0 ]
+      code: "wx.showModal(tainted)"

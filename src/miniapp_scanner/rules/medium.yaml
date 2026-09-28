@@ -1,0 +1,38 @@
+rules:
+  - id: SEC-101
+    info:
+      name: "Hardcoded phone number"
+      severity: medium
+      description: "Hardcoded phone number detected"
+      suggestion: "Mask or remove PII from code"
+    check:
+      type: regex
+      pattern: '["'']1[3-9]\d{9}["'']'
+      file_filter: ".*\\.(js|json|ts)$"
+
+  - id: SEC-103
+    info:
+      name: "TLS verify disabled"
+      severity: medium
+      description: "TLS certificate verification disabled"
+      suggestion: "Re-enable certificate verification"
+    check:
+      type: ast
+      ast_pattern:
+        node_type: Property
+        key_name: rejectUnauthorized
+        value_value: false
+
+  - id: SEC-104
+    info:
+      name: "Sensitive data in log"
+      severity: medium
+      description: "console.log prints sensitive info"
+      suggestion: "Remove sensitive logs"
+    check:
+      type: ast
+      ast_pattern:
+        node_type: CallExpression
+        callee_object: console
+        callee_property: log
+        arg_contains_any: ["token", "password", "secret"]

@@ -1,0 +1,119 @@
+sources:
+  - name: "wx.getStorageSync"
+    taint_returns: true
+  - name: "wx.getStorage"
+    taint_returns: true
+  - name: "wx.getUserInfo"
+    taint_returns: true
+  - name: "wx.getClipboardData"
+    taint_returns: true
+  - name: "onLoad"
+    taint_params: true
+  - name: "onShow"
+    taint_params: true
+  - name: "onShareAppMessage"
+    taint_params: true
+  - member: "event.detail.value"
+  - member: "e.detail.value"
+  - member: "e.currentTarget.dataset.keyword"
+  - member: "e.currentTarget.dataset.value"
+  - member: "e.currentTarget.dataset.id"
+  - member: "event.currentTarget.dataset"
+  - member: "options.query"
+  - member: "this.data.keyword"
+      # 更多污点源
+  - name: "wx.getUserProfile"
+    taint_returns: true
+  - name: "wx.getSystemInfo"
+    taint_returns: true
+  - name: "wx.getSystemInfoSync"
+    taint_returns: true
+  - name: "wx.getLaunchOptionsSync"
+    taint_returns: true
+  - name: "wx.getEnterOptionsSync"
+    taint_returns: true
+  - member: "res.data"
+  - member: "response.data"
+  - member: "result.data"
+
+sinks:
+  - name: "eval"
+    dangerous_arg: [0]
+    severity: high
+    message: "Tainted data flows into eval"
+    suggestion: "Use JSON.parse; never eval user input"
+  - name: "Function"
+    dangerous_arg: [0]
+    severity: high
+    message: "Tainted data flows into Function constructor"
+    suggestion: "Remove dynamic construction"
+  - name: "setTimeout"
+    dangerous_arg: [0]
+    severity: medium
+    message: "setTimeout with string arg is code execution"
+    suggestion: "Pass function object instead"
+  - name: "wx.navigateTo"
+    dangerous_arg: [0]
+    severity: medium
+    message: "Tainted URL flows into navigation"
+    suggestion: "Whitelist target pages"
+  - name: "wx.redirectTo"
+    dangerous_arg: [0]
+    severity: medium
+    message: "Tainted URL flows into redirect"
+    suggestion: "Whitelist target pages"
+  - name: "wx.request"
+    dangerous_arg: [0, 1]
+    severity: medium
+    message: "Tainted data flows into network request"
+    suggestion: "Whitelist URL domain, validate params"
+  - name: "wx.setStorageSync"
+    dangerous_arg: [ 1 ]
+    severity: high
+    message: "Tainted data stored into local storage"
+    suggestion: "Never store sensitive data in local storage"
+  - name: "wx.setStorage"
+    dangerous_arg: [ 0 ]
+    severity: high
+    message: "Tainted data stored into local storage"
+    suggestion: "Never store sensitive data in local storage"
+  - name: "wx.setClipboardData"
+    dangerous_arg: [ 0 ]
+    severity: medium
+    message: "Tainted data written into clipboard"
+    suggestion: "Validate before writing to clipboard"
+  - name: "Object.assign"
+    dangerous_arg: [ 0, 1 ]
+    severity: high
+    message: "Tainted object merged via Object.assign, prototype pollution risk"
+    suggestion: "Validate keys; reject __proto__/constructor/prototype"
+  - name: "wx.showModal"
+    dangerous_arg: [ 0 ]
+    severity: low
+    message: "Tainted content rendered in modal"
+    suggestion: "Escape before display"
+
+member_sinks:
+  - member: "innerHTML"
+    severity: high
+    message: "Tainted data flows into innerHTML (XSS)"
+    suggestion: "Use textContent or sanitize with DOMPurify"
+  - member: "nodes"
+    severity: high
+    message: "Tainted data flows into rich-text nodes (XSS)"
+    suggestion: "Sanitize HTML before rendering rich-text"
+  - member: "data"
+    severity: low
+    message: "Tainted data written into page data"
+    suggestion: "Sanitize before setData"
+
+sanitizers:
+  - name: "encodeURIComponent"
+  - name: "encodeURI"
+  - name: "escape"
+  - name: "parseInt"
+  - name: "parseFloat"
+  - name: "Number"
+  - name: "DOMPurify.sanitize"
+  - name: "sanitizeHtml"
+
