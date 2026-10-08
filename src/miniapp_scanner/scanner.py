@@ -272,5 +272,4 @@ class ReportGenerator:
                                f"(置信度 {tr['confidence']}) — {tr['reason']}")
         out.append("\n" + "=" * 72)
         return "\n".join(out)
-    # 在 _scan_file 的末尾，收集所有 findings 后
-    # 去掉同一行同一漏洞的 DSL 和 TAINT 重复（保留 TAINT）
+
