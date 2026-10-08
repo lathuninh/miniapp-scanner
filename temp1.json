@@ -1,0 +1,81 @@
+{
+  "target": "C:\\网安\\漏洞扫描工具\\test_projects\\wechat-weapp-movie-master\\wechat-weapp-movie-master",
+  "project_type": "miniapp",
+  "start_time": "2026-10-08 21:22:16",
+  "files_scanned": 44,
+  "lines_scanned": 1849,
+  "findings": [
+    {
+      "rule_id": "TAINT-wx.setStorage",
+      "rule_name": "污点传播: 用户输入 → wx.setStorage",
+      "severity": "high",
+      "file": "pages\\editPersonInfo\\editPersonInfo.js",
+      "line": 48,
+      "code": "wx.setStorage(...) ← 接收污点参数",
+      "description": "Tainted data stored into local storage",
+      "suggestion": "Never store sensitive data in local storage",
+      "engine": "taint",
+      "trace": [
+        "读取 e.detail.value（用户可控）",
+        "存入变量 data"
+      ]
+    },
+    {
+      "rule_id": "TAINT-wx.redirectTo",
+      "rule_name": "污点传播: 用户输入 → wx.redirectTo",
+      "severity": "medium",
+      "file": "pages\\search\\search.js",
+      "line": 38,
+      "code": "wx.redirectTo(...) ← 接收污点参数",
+      "description": "Tainted URL flows into redirect",
+      "suggestion": "Whitelist target pages",
+      "engine": "taint",
+      "trace": [
+        "读取 e.detail.value（用户可控）",
+        "存入变量 keyword",
+        "字符串拼接"
+      ]
+    },
+    {
+      "rule_id": "TAINT-wx.redirectTo",
+      "rule_name": "污点传播: 用户输入 → wx.redirectTo",
+      "severity": "medium",
+      "file": "pages\\search\\search.js",
+      "line": 46,
+      "code": "wx.redirectTo(...) ← 接收污点参数",
+      "description": "Tainted URL flows into redirect",
+      "suggestion": "Whitelist target pages",
+      "engine": "taint",
+      "trace": [
+        "读取 e.currentTarget.dataset.keyword（用户可控）",
+        "存入变量 keyword",
+        "字符串拼接"
+      ]
+    },
+    {
+      "rule_id": "TAINT-wx.redirectTo",
+      "rule_name": "污点传播: 用户输入 → wx.redirectTo",
+      "severity": "medium",
+      "file": "pages\\search\\search.js",
+      "line": 53,
+      "code": "wx.redirectTo(...) ← 接收污点参数",
+      "description": "Tainted URL flows into redirect",
+      "suggestion": "Whitelist target pages",
+      "engine": "taint",
+      "trace": [
+        "读取 e.currentTarget.dataset.keyword（用户可控）",
+        "存入变量 keyword",
+        "字符串拼接"
+      ]
+    }
+  ],
+  "duration": 2.596,
+  "obfuscated_files": [],
+  "summary": {
+    "total": 4,
+    "high": 1,
+    "medium": 3,
+    "low": 0
+  },
+  "triage": {}
+}

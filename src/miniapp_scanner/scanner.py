@@ -22,29 +22,6 @@ class Scanner:
     SCAN_EXT = {".js", ".json", ".ts"}
     JS_EXT = {".js", ".ts"}
 
-    def _detect_project_type(self, root: Path) -> str:
-        """检测项目类型：miniapp / web / node / unknown"""
-        if not root.is_dir():
-            return "unknown"
-        # 微信小程序特征：app.json + pages 目录
-        if (root / "app.json").exists() and (root / "pages").exists():
-            return "miniapp"
-        # 小程序变体：有 app.wxss 或 app.js + pages 目录
-        if (root / "pages").exists() and (
-                (root / "app.wxss").exists() or (root / "app.js").exists()
-        ):
-            return "miniapp"
-        # Web 应用：package.json + index.html
-        if (root / "package.json").exists() and (
-                (root / "index.html").exists()
-                or (root / "app" / "index.html").exists()
-        ):
-            return "web"
-        # 纯 Node 项目
-        if (root / "package.json").exists():
-            return "node"
-        return "unknown"
-
     def __init__(self, rules_dir: Optional[Path] = None):
         self.rules_dir = Path(rules_dir) if rules_dir else DEFAULT_RULES_DIR
         self.obf = ObfuscationPreprocessor()
@@ -85,6 +62,25 @@ class Scanner:
             for r in self.regex_rules
         ]
 
+    def _detect_project_type(self, root: Path) -> str:
+        """检测项目类型：miniapp / web / node / unknown"""
+        if not root.is_dir():
+            return "unknown"
+        if (root / "app.json").exists() and (root / "pages").exists():
+            return "miniapp"
+        if (root / "pages").exists() and (
+                (root / "app.wxss").exists() or (root / "app.js").exists()
+        ):
+            return "miniapp"
+        if (root / "package.json").exists() and (
+                (root / "index.html").exists()
+                or (root / "app" / "index.html").exists()
+        ):
+            return "web"
+        if (root / "package.json").exists():
+            return "node"
+        return "unknown"
+
     def scan(self, target: str, output_dir: Optional[str] = None) -> Dict:
         tp = Path(target)
         if tp.suffix == ".wxapkg":
@@ -93,30 +89,27 @@ class Scanner:
             if not unpacked:
                 raise RuntimeError("解包失败")
             tp = Path(unpacked)
-            # ★ 检测项目类型
-            project_type = self._detect_project_type(tp)
-            if project_type == "web":
-                print("⚠️  检测到 Web 应用（非微信小程序），部分小程序规则可能不适用")
-            elif project_type == "node":
-                print("⚠️  检测到 Node 项目，可能不是小程序源码")
-            elif project_type == "unknown":
-                print("⚠️  未能识别项目类型，按通用规则扫描")
 
         t0 = time.time()
+
+        # 检测项目类型
+        project_type = self._detect_project_type(tp)
+        if project_type == "web":
+            print("⚠️  检测到 Web 应用（非微信小程序），部分小程序规则可能不适用")
+        elif project_type == "node":
+            print("⚠️  检测到 Node 项目，可能不是小程序源码")
+        elif project_type == "unknown":
+            print("⚠️  未能识别项目类型，按通用规则扫描")
+
         report = {
             "target": str(tp),
+            "project_type": project_type,
             "start_time": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
             "files_scanned": 0,
             "lines_scanned": 0,
             "findings": [],
             "duration": 0.0,
             "obfuscated_files": [],
-
-        }
-        report = {
-            "target": str(tp),
-            "project_type": project_type,  # ★ 新增
-            "start_time": ...,
         }
 
         if tp.is_dir():

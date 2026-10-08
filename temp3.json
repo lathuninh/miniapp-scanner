@@ -1,0 +1,30 @@
+{
+  "target": "C:\\网安\\漏洞扫描工具\\test_projects\\MinApp-Compass-master\\MinApp-Compass-master",
+  "project_type": "miniapp",
+  "start_time": "2026-10-08 21:23:07",
+  "files_scanned": 7,
+  "lines_scanned": 209,
+  "findings": [
+    {
+      "rule_id": "SEC-205",
+      "rule_name": "Hardcoded WeChat AppID",
+      "severity": "low",
+      "file": "project.config.json",
+      "line": 11,
+      "code": "\"appid\": \"wx39d2c79c5957b758\",",
+      "description": "WeChat AppID hardcoded in config file",
+      "suggestion": "Use environment-specific config; avoid leaking AppID in public repos",
+      "engine": "regex",
+      "trace": []
+    }
+  ],
+  "duration": 0.212,
+  "obfuscated_files": [],
+  "summary": {
+    "total": 1,
+    "high": 0,
+    "medium": 0,
+    "low": 1
+  },
+  "triage": {}
+}
