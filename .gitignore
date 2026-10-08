@@ -28,6 +28,7 @@ htmlcov/
 
 # 扫描产物（临时报告）
 report*.json
+temp*.json
 *_report.md
 movie_*.md
 movie_report.md
