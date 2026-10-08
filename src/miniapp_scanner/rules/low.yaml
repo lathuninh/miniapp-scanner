@@ -15,7 +15,7 @@ rules:
   - id: SEC-202
     info:
       name: "innerHTML assignment"
-      severity: low
+      severity: info
       description: "Direct innerHTML assignment may cause XSS"
       suggestion: "Use textContent or sanitize first"
     check:

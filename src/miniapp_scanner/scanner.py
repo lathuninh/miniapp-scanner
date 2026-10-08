@@ -125,7 +125,7 @@ class Scanner:
             report["lines_scanned"] += self._scan_file(fp, tp, report)
 
         report["obfuscated_files"] = self.obf.report()
-        order = {"high": 0, "medium": 1, "low": 2}
+        order = {"high": 0, "medium": 1, "low": 2, "info": 3}
         eng = {"taint": 0, "dsl": 1, "ast": 2, "regex": 3}
         report["findings"].sort(key=lambda f: (
             order.get(f["severity"], 9),
@@ -224,7 +224,7 @@ class Scanner:
 
     @staticmethod
     def _summary(findings: List[Dict]) -> Dict:
-        s = {"total": len(findings), "high": 0, "medium": 0, "low": 0}
+        s = {"total": len(findings), "high": 0, "medium": 0, "low": 0, "info": 0}
         for f in findings:
             if f["severity"] in s:
                 s[f["severity"]] += 1
@@ -232,7 +232,7 @@ class Scanner:
 
 
 class ReportGenerator:
-    ICON = {"high": "🔴", "medium": "🟠", "low": "🟡"}
+    ICON = {"high": "🔴", "medium": "🟠", "low": "🟡", "info": "⚪"}
 
     @staticmethod
     def to_console(report: Dict, triage_map: Optional[Dict] = None) -> str:
@@ -244,7 +244,7 @@ class ReportGenerator:
                f"  扫描时间 : {report['start_time']}   耗时: {report['duration']}s",
                f"  文件数   : {report['files_scanned']}   代码行数: {report['lines_scanned']}",
                "-" * 72,
-               f"  漏洞总数 : {s['total']}   🔴 {s['high']}   🟠 {s['medium']}   🟡 {s['low']}",
+                f"  漏洞总数 : {s['total']}   🔴 {s['high']}   🟠 {s['medium']}   🟡 {s['low']}   ⚪ {s.get('info', 0)}",
                "=" * 72]
         if report.get("obfuscated_files"):
             out.append(f"  ⚠️  检测到 {len(report['obfuscated_files'])} 个混淆文件")
