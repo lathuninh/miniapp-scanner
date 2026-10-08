@@ -48,8 +48,8 @@ rules:
                 - eq: [callee.object.name, "localStorage"]
                 - eq: [callee.property.name, "setItem"]
         - or:
-            - match: [arguments.0.value, "(?i)(token|password|secret|key|credential)"]
-            - match: [arguments.0.name, "(?i)(token|password|secret|key|credential)"]
+            - match: [ arguments.0.value, "(?i)^(token|password|passwd|pwd|secret|credential|auth|access_token|refresh_token)$" ]
+            - match: [ arguments.0.name, "(?i)(^|[_-])(token|password|passwd|pwd|secret|credential|auth)([_-]|$)" ]
       code: "wx.setStorageSync('token', ...)"
 
 
@@ -154,8 +154,8 @@ rules:
         - eq: [ callee.object.name, "wx" ]
         - eq: [ callee.property.name, "setStorage" ]
         - or:
-            - match: [ arguments.0.value, "(?i)(token|password|secret|key|credential|auth)" ]
-            - match: [ arguments.0.name, "(?i)(token|password|secret|key|credential|auth)" ]
+            - match: [ arguments.0.value, "(?i)^(token|password|passwd|pwd|secret|credential|auth|access_token|refresh_token)$" ]
+            - match: [ arguments.0.name, "(?i)(^|[_-])(token|password|passwd|pwd|secret|credential|auth)([_-]|$)" ]
       code: "wx.setStorage({key:'token',...})"
 
   # ==================== 原型链污染 ====================
