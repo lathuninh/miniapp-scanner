@@ -107,17 +107,30 @@ class Scanner:
         return report
 
     def _collect_files(self, root: Path) -> List[Path]:
+        import re as _re
         if root.is_file():
             return [root] if root.suffix in self.SCAN_EXT else []
+        # 排除的目录名
+        EXCLUDE_DIRS = {"node_modules", ".git", "dist", "wxParse", "__MACOSX"}
+        # 排除的文件名模式（第三方库/压缩产物）
+        EXCLUDE_FILE_PATTERNS = [
+            r"\.min\.js$",
+            r"[/\\]runtime\.js$",
+            r"\.bundle\.js$",
+            r"[/\\]showdown\.js$",
+            r"weapp\.qrcode.*\.js$",
+        ]
         result: List[Path] = []
         for dirpath, dirnames, filenames in os.walk(root):
-            # 排除 node_modules 和 .git
-            dirnames[:] = [d for d in dirnames
-                           if d not in ("node_modules", ".git", "dist")]
+            dirnames[:] = [d for d in dirnames if d not in EXCLUDE_DIRS]
             for fn in filenames:
                 fp = Path(dirpath) / fn
-                if fp.suffix in self.SCAN_EXT:
-                    result.append(fp)
+                if fp.suffix not in self.SCAN_EXT:
+                    continue
+                rel = str(fp.relative_to(root)) if root.is_dir() else fn
+                if any(_re.search(p, rel) for p in EXCLUDE_FILE_PATTERNS):
+                    continue
+                result.append(fp)
         return result
 
     def _scan_file(self, fp: Path, root: Path, report: Dict) -> int:
@@ -229,3 +242,5 @@ class ReportGenerator:
                                f"(置信度 {tr['confidence']}) — {tr['reason']}")
         out.append("\n" + "=" * 72)
         return "\n".join(out)
+    # 在 _scan_file 的末尾，收集所有 findings 后
+    # 去掉同一行同一漏洞的 DSL 和 TAINT 重复（保留 TAINT）

@@ -54,23 +54,6 @@ rules:
 
 
 
-  - id: DSL-005
-    info:
-      name: "Open redirect via navigation"
-      severity: medium
-      description: "User-controlled URL flows into wx.navigateTo/redirectTo, enabling open redirect / phishing"
-      suggestion: "Whitelist allowed page paths before navigation"
-    dsl:
-      node: CallExpression
-      conditions:
-        - eq: [callee.object.name, "wx"]
-        - or:
-            - eq: [callee.property.name, "navigateTo"]
-            - eq: [callee.property.name, "redirectTo"]
-            - eq: [callee.property.name, "reLaunch"]
-        - arg_tainted: [0]
-      code: "wx.navigateTo(tainted_url)"
-
   - id: DSL-006
     info:
       name: "Prototype pollution via Object.assign"
@@ -158,21 +141,6 @@ rules:
 
   # ==================== 存储相关 ====================
 
-  - id: DSL-015
-    info:
-      name: "Sensitive data in wx.setStorageSync"
-      severity: high
-      description: "Token/password/secret written into wx.setStorageSync"
-      suggestion: "Never store credentials locally"
-    dsl:
-      node: CallExpression
-      conditions:
-        - eq: [ callee.object.name, "wx" ]
-        - eq: [ callee.property.name, "setStorageSync" ]
-        - or:
-            - match: [ arguments.0.value, "(?i)(token|password|secret|key|credential|auth)" ]
-            - match: [ arguments.0.name, "(?i)(token|password|secret|key|credential|auth)" ]
-      code: "wx.setStorageSync('token', ...)"
 
   - id: DSL-016
     info:
@@ -304,16 +272,3 @@ rules:
             file_match: ".*\\.test\\.js$"
       code: "eval(tainted)"
 
-  - id: DSL-024
-    info:
-      name: "wx.showModal with tainted content"
-      severity: low
-      description: "User data displayed in modal content"
-      suggestion: "Escape before display"
-    dsl:
-      node: CallExpression
-      conditions:
-        - eq: [ callee.object.name, "wx" ]
-        - eq: [ callee.property.name, "showModal" ]
-        - arg_tainted: [ 0 ]
-      code: "wx.showModal(tainted)"
