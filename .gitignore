@@ -35,3 +35,12 @@ movie_report.md
 
 # 日志
 *.log
+
+# ★ 密钥/敏感配置（防误提交）
+.miniapp-scanner.yaml
+**/.miniapp-scanner.yaml
+.env
+*.env
+.env.*
+secrets.*
+config.local.*
