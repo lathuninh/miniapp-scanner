@@ -35,3 +35,37 @@ def test_arg_tainted():
     node = _call_node("eval(x);")
     assert rule.match(node, "a.js", taint_lookup=lambda _: True) is not None
     assert rule.match(node, "a.js", taint_lookup=lambda _: False) is None
+
+def test_and_or_not():
+    """组合条件：and / or / not"""
+    rule = RuleDSL({
+        "id": "T2",
+        "info": {"name": "t", "severity": "medium"},
+        "dsl": {
+            "node": "CallExpression",
+            "conditions": [
+                {"eq": ["callee.object.name", "wx"]},
+                {"or": [
+                    {"eq": ["callee.property.name", "request"]},
+                    {"eq": ["callee.property.name", "navigateTo"]},
+                ]},
+                {"not": {"file_match": [r"\.test\.js$"]}},
+            ],
+        },
+    })
+    assert rule.match(_call_node("wx.request({});"), "a.js") is not None
+    assert rule.match(_call_node("wx.navigateTo({});"), "a.js") is not None
+    assert rule.match(_call_node("wx.request({});"), "a.test.js") is None
+    assert rule.match(_call_node("fs.readFile();"), "a.js") is None
+
+
+def test_match_regex():
+    """正则匹配条件"""
+    rule = RuleDSL({
+        "id": "T4",
+        "info": {"name": "t", "severity": "low"},
+        "dsl": {"node": "CallExpression",
+                "conditions": [{"match": ["callee.name", "^eval$"]}]},
+    })
+    assert rule.match(_call_node("eval(x);"), "a.js") is not None
+    assert rule.match(_call_node("evaluate(x);"), "a.js") is None
