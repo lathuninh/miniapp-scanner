@@ -44,3 +44,12 @@ movie_report.md
 .env.*
 secrets.*
 config.local.*
+
+# LLM 生成报告
+noodle_report*.md
+*_report*.md
+report_*.md
+
+# 临时测试目录
+temp_test_rules/
+temp_rule_test*.json
