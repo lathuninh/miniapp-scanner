@@ -37,7 +37,7 @@ rules:
   - id: SEC-205
     info:
         name: "Hardcoded WeChat AppID"
-        severity: low
+        severity: info
         description: "WeChat AppID hardcoded in config file"
         suggestion: "Use environment-specific config; avoid leaking AppID in public repos"
     check:
