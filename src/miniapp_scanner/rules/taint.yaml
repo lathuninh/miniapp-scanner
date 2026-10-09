@@ -91,6 +91,16 @@ sinks:
     severity: high
     message: "Tainted object merged via Object.assign, prototype pollution risk"
     suggestion: "Validate keys; reject __proto__/constructor/prototype"
+  - name: "wx.requestPayment"
+    dangerous_arg: [ 0 ]
+    severity: high
+    message: "Tainted data flows into payment"
+    suggestion: "Validate amount server-side"
+  - name: "wx.openLocation"
+    dangerous_arg: [ 0 ]
+    severity: medium
+    message: "Tainted data flows into openLocation"
+    suggestion: "Validate coordinate ranges"
 
 member_sinks:
   - member: "innerHTML"

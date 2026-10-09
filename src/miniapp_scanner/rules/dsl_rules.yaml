@@ -272,3 +272,46 @@ rules:
             file_match: ".*\\.test\\.js$"
       code: "eval(tainted)"
 
+
+    - id: DSL-025
+      info:
+            name: "wx.requestPayment with tainted amount"
+            severity: high
+            description: "User-controlled amount flows into payment API"
+            suggestion: "Validate amount server-side; never trust frontend"
+      dsl:
+            node: CallExpression
+            conditions:
+              - eq: [ callee.object.name, "wx" ]
+              - eq: [ callee.property.name, "requestPayment" ]
+              - arg_tainted: [ 0 ]
+            code: "wx.requestPayment(tainted)"
+
+    - id: DSL-026
+      info:
+            name: "wx.openLocation with tainted coords"
+            severity: medium
+            description: "User-controlled coordinates flow into openLocation"
+            suggestion: "Validate latitude/longitude ranges"
+      dsl:
+            node: CallExpression
+            conditions:
+              - eq: [ callee.object.name, "wx" ]
+              - eq: [ callee.property.name, "openLocation" ]
+              - arg_tainted: [ 0 ]
+            code: "wx.openLocation(tainted)"
+
+    - id: DSL-027
+      info:
+            name: "wx.setClipboardData with tainted data"
+            severity: low
+            description: "User-controlled data written into clipboard"
+            suggestion: "Validate before writing to clipboard"
+      dsl:
+            node: CallExpression
+            conditions:
+              - eq: [ callee.object.name, "wx" ]
+              - eq: [ callee.property.name, "setClipboardData" ]
+              - arg_tainted: [ 0 ]
+            code: "wx.setClipboardData(tainted)"
+
