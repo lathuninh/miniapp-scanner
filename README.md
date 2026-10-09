@@ -1,3 +1,5 @@
+[![CI](https://github.com/lathuninh/miniapp-scanner/actions/workflows/ci.yml/badge.svg)](https://github.com/lathuninh/miniapp-scanner/actions/workflows/ci.yml)
+
 # miniapp-scanner
 
 微信小程序静态安全扫描器：AST + 污点分析 + DSL 规则 + LLM 研判。
