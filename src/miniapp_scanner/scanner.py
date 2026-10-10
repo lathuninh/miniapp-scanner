@@ -142,9 +142,7 @@ class Scanner:
         import re as _re
         if root.is_file():
             return [root] if root.suffix in self.SCAN_EXT else []
-        # 排除的目录名
         EXCLUDE_DIRS = {"node_modules", ".git", "dist", "wxParse", "__MACOSX"}
-        # 排除的文件名模式（第三方库/压缩产物）
         EXCLUDE_FILE_PATTERNS = [
             r"\.min\.js$",
             r"[/\\]runtime\.js$",
@@ -152,12 +150,18 @@ class Scanner:
             r"[/\\]showdown\.js$",
             r"weapp\.qrcode.*\.js$",
         ]
+        MAX_FILE_SIZE = 500 * 1024        # ★ 新增：跳过 500KB+ 的文件
         result: List[Path] = []
         for dirpath, dirnames, filenames in os.walk(root):
             dirnames[:] = [d for d in dirnames if d not in EXCLUDE_DIRS]
             for fn in filenames:
                 fp = Path(dirpath) / fn
                 if fp.suffix not in self.SCAN_EXT:
+                    continue
+                try:
+                    if fp.stat().st_size > MAX_FILE_SIZE:      # ★ 跳过超大文件
+                        continue
+                except Exception:
                     continue
                 rel = str(fp.relative_to(root)) if root.is_dir() else fn
                 if any(_re.search(p, rel) for p in EXCLUDE_FILE_PATTERNS):
@@ -167,7 +171,9 @@ class Scanner:
 
     def _scan_file(self, fp: Path, root: Path, report: Dict) -> int:
         try:
-            text = fp.read_text(encoding="utf-8", errors="ignore")
+            # 用内存映射或更快读取
+            with open(fp, "r", encoding="utf-8", errors="ignore") as f:
+                text = f.read()
         except Exception:
             return 0
         text = self.obf.preprocess(text, str(fp))
