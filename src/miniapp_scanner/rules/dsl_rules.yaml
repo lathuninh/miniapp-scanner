@@ -397,3 +397,71 @@ rules:
             - eq: [callee.property.name, "querySelector"]
         - arg_tainted: [0]
       code: "document.getElementById(tainted)"
+
+
+  - id: DSL-050
+    info:
+      name: "PostMessage without origin check"
+      severity: high
+      description: "window message listener without origin validation"
+      suggestion: "Always check event.origin against a whitelist before processing"
+    dsl:
+      node: CallExpression
+      conditions:
+        - or:
+            - eq: [callee.object.name, "window"]
+            - eq: [callee.object.name, "self"]
+        - eq: [callee.property.name, "addEventListener"]
+        - eq: [arguments.0.value, "message"]
+      code: "window.addEventListener('message', ...)"
+
+  - id: DSL-051
+    info:
+      name: "postMessage with wildcard origin"
+      severity: medium
+      description: "postMessage called with '*' target origin"
+      suggestion: "Specify exact target origin instead of '*'"
+    dsl:
+      node: CallExpression
+      conditions:
+        - eq: [callee.property.name, "postMessage"]
+        - eq: [arguments.1.value, "*"]
+      code: "postMessage(data, '*')"
+
+  - id: DSL-052
+    info:
+      name: "Fetch/POST without CSRF token"
+      severity: medium
+      description: "POST request without visible CSRF protection"
+      suggestion: "Include CSRF token in headers or body"
+    dsl:
+      node: CallExpression
+      conditions:
+        - eq: [callee.name, "fetch"]
+        - eq: [arguments.1.object.property.name, "POST"]
+      code: "fetch(url, {method: 'POST'})"
+
+  - id: DSL-053
+    info:
+      name: "JSONP callback via dynamic script"
+      severity: medium
+      description: "JSONP pattern allows cross-origin data theft if callback is user-controlled"
+      suggestion: "Use CORS-enabled APIs instead of JSONP"
+    dsl:
+      node: CallExpression
+      conditions:
+        - eq: [callee.name, "JSONP"]
+      code: "JSONP(...)"
+
+  - id: DSL-054
+    info:
+      name: "Document.domain set (relaxed same-origin)"
+      severity: medium
+      description: "Setting document.domain relaxes same-origin policy"
+      suggestion: "Avoid document.domain; use postMessage"
+    dsl:
+      node: AssignmentExpression
+      conditions:
+        - eq: [left.object.name, "document"]
+        - eq: [left.property.name, "domain"]
+      code: "document.domain = ..."
