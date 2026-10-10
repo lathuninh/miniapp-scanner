@@ -20,6 +20,7 @@ class TaintAnalyzer:
         self.current_file = ""
         self._call_depth = 0
         self._returned = False
+        self.fn_returns = {}  # ★ 函数名 → 返回值是否被污染
 
     def analyze(self, code: str, file_path: str) -> List[Dict]:
         self.aliases = AliasTracker()
@@ -63,7 +64,9 @@ class TaintAnalyzer:
         elif t in ("ForStatement", "WhileStatement", "DoWhileStatement"):
             self._exec_stmt(node.get("body"), file_path)
         elif t == "ReturnStatement":
-            self._eval_expr(node.get("argument"), file_path)
+            tr = self._eval_expr(node.get("argument"), file_path)
+            if tr:
+                self._return_trace = tr  # ★ 记录
             self._returned = True
         elif t == "TryStatement":
             self._exec_stmt(node.get("block"), file_path)
@@ -161,7 +164,9 @@ class TaintAnalyzer:
         snap_a = self.aliases.snapshot()
         snap_c = dict(self.constants)
         saved_ret = self._returned
+        saved_ret_trace = getattr(self, "_return_trace", None)
         self._returned = False
+        self._return_trace = None  # ★ 记录 return 的污点
 
         for p in node.get("params", []):
             pname = p.get("name")
@@ -175,9 +180,14 @@ class TaintAnalyzer:
                     break
                 self._exec_stmt(s, file_path)
 
+        # ★ 记录函数返回值污染
+        if name and self._return_trace:
+            self.fn_returns[name] = self._return_trace
+
         self.aliases.restore(snap_a)
         self.constants = snap_c
         self._returned = saved_ret
+        self._return_trace = saved_ret_trace
 
     def _eval_expr(self, node, file_path) -> Optional[List[str]]:
         if not node:
@@ -299,6 +309,11 @@ class TaintAnalyzer:
             if tr:
                 return tr + [f"经 {callee_name}() 传递"]
         return None
+        # ★ 检查本地函数返回值污染
+        if callee_name in self.fn_returns:
+            return self.fn_returns[callee_name] + [f"{callee_name}() 的返回值"]
+
+        # ... 后续逻辑
 
     def _try_cross_file(self, callee, callee_name, args, file_path):
         if not self.registry or self._call_depth >= self.MAX_CROSS_FILE_DEPTH:

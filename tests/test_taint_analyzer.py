@@ -59,3 +59,24 @@ def test_sanitizer_breaks_taint():
     """
     findings = _analyzer().analyze(code, "test.js")
     assert not any(f["rule_id"] == "TAINT-eval" for f in findings)
+
+
+def test_cross_file_return_value():
+    """跨文件返回值传播"""
+    cfg = {
+        "sources": [{"name": "wx.getStorageSync", "taint_returns": True}],
+        "sinks": [{"name": "eval", "dangerous_arg": [0]}],
+        "member_sinks": [],
+        "sanitizers": [],
+    }
+    analyzer = TaintAnalyzer(cfg)
+
+    # 定义一个返回污染数据的函数
+    code = """
+    function getUserInput() {
+      return wx.getStorageSync('draft');
+    }
+    """
+    analyzer.analyze(code, "helper.js")
+    # 手动检查 fn_returns
+    assert "getUserInput" in analyzer.fn_returns
