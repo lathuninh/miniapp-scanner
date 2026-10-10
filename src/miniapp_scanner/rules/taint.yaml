@@ -40,6 +40,16 @@ sources:
   - member: "response.data"
   - member: "result.data"
 
+  # Web 专用污点源
+  - member: "location.search"
+  - member: "location.hash"
+  - member: "location.href"
+  - member: "document.cookie"
+  - member: "document.referrer"
+  - member: "window.name"
+  - member: "event.data"
+  - member: "postMessage"
+
 sinks:
   - name: "eval"
     dangerous_arg: [0]
@@ -117,6 +127,22 @@ sinks:
     message: "Tainted URL into previewImage"
     suggestion: "Whitelist image domains"
 
+  - name: "document.write"
+    dangerous_arg: [0]
+    severity: high
+    message: "Tainted data into document.write"
+    suggestion: "Avoid document.write; use DOM manipulation"
+  - name: "eval"
+    dangerous_arg: [0]
+    severity: high
+    message: "Tainted data into eval"
+    suggestion: "Never eval user input"
+  - name: "setTimeout"
+    dangerous_arg: [0]
+    severity: medium
+    message: "Tainted string into setTimeout"
+    suggestion: "Use function callback"
+
 member_sinks:
   - member: "innerHTML"
     severity: high
@@ -126,6 +152,23 @@ member_sinks:
     severity: high
     message: "Tainted data flows into rich-text nodes (XSS)"
     suggestion: "Sanitize HTML before rendering rich-text"
+
+  - member: "innerHTML"
+    severity: high
+    message: "Tainted data into innerHTML (XSS)"
+    suggestion: "Use textContent or sanitize"
+  - member: "outerHTML"
+    severity: high
+    message: "Tainted data into outerHTML (XSS)"
+    suggestion: "Use replaceWith or sanitize"
+  - member: "src"
+    severity: medium
+    message: "Tainted URL into src attribute"
+    suggestion: "Whitelist allowed sources"
+  - member: "href"
+    severity: medium
+    message: "Tainted URL into href attribute"
+    suggestion: "Whitelist allowed domains"
 
 sanitizers:
   - name: "encodeURIComponent"

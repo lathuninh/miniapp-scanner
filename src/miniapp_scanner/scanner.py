@@ -76,7 +76,9 @@ class Scanner:
                 (root / "index.html").exists()
                 or (root / "app" / "index.html").exists()
         ):
-            return "web"
+            # Web 应用特征：index.html + 任意 JS 文件
+            if (root / "index.html").exists() or (root / "app" / "index.html").exists():
+                return "web"
         if (root / "package.json").exists():
             return "node"
         return "unknown"

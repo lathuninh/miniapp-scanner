@@ -370,3 +370,30 @@ rules:
               - eq: [ callee.property.name, "setEnableDebug" ]
               - arg_tainted: [ 0 ]
         code: "wx.setEnableDebug(tainted)"
+
+  - id: DSL-040
+    info:
+      name: "DOM Clobbering: global variable overwrite"
+      severity: high
+      description: "Assigning to global property that may clobber DOM APIs"
+      suggestion: "Use local scope or namespace; avoid clobbering global"
+    dsl:
+      node: AssignmentExpression
+      conditions:
+        - match: [left.property.name, "^(document|window|self|globalThis|top|parent|location|navigator)$"]
+      code: "window.document = ..."
+
+  - id: DSL-041
+    info:
+      name: "DOM Clobbering: id/name collision"
+      severity: medium
+      description: "Element with id/name that may shadow global variable"
+      suggestion: "Use unique ids; avoid names matching global APIs"
+    dsl:
+      node: CallExpression
+      conditions:
+        - or:
+            - eq: [callee.property.name, "getElementById"]
+            - eq: [callee.property.name, "querySelector"]
+        - arg_tainted: [0]
+      code: "document.getElementById(tainted)"
