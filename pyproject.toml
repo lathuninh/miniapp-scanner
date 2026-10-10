@@ -12,6 +12,8 @@ license = { text = "MIT" }
 dependencies = [
     "PyYAML>=6.0",
     "esprima>=4.0.1",
+    "tqdm>=4.65.0",
+    "colorama>=0.4.6",       # ← 新增
 ]
 
 [project.optional-dependencies]

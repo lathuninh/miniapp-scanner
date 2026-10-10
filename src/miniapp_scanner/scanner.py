@@ -138,6 +138,16 @@ class Scanner:
         report["summary"] = self._summary(report["findings"])
         return report
 
+        files = self._collect_files(tp)
+        try:
+            from tqdm import tqdm
+            iterator = tqdm(files, desc="扫描中", unit="file", ncols=80)
+        except ImportError:
+            iterator = files
+        for fp in iterator:
+            report["files_scanned"] += 1
+            report["lines_scanned"] += self._scan_file(fp, tp, report)
+
     def _collect_files(self, root: Path) -> List[Path]:
         import re as _re
         if root.is_file():
@@ -241,9 +251,17 @@ class Scanner:
 
 class ReportGenerator:
     ICON = {"high": "🔴", "medium": "🟠", "low": "🟡", "info": "⚪"}
+    COLOR = {"high": "\033[91m", "medium": "\033[93m", "low": "\033[93m", "info": "\033[90m"}
+    RESET = "\033[0m"
 
     @staticmethod
-    def to_console(report: Dict, triage_map: Optional[Dict] = None) -> str:
+    def to_console(report, triage_map=None):
+        try:
+            from colorama import init
+            init()  # 让 Windows 支持 ANSI
+        except ImportError:
+            pass
+
         s = report["summary"]
         out = ["=" * 72,
                "  🛡️  小程序安全漏洞扫描报告 v5",
