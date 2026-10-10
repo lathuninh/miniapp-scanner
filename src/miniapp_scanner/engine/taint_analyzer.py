@@ -284,6 +284,7 @@ class TaintAnalyzer:
         callee_name = self._member_name(callee) or callee.get("name", "")
         args = node.get("arguments", [])
 
+        # 1. sink 检查
         sink = self._find_sink(callee_name)
         if sink:
             for idx in sink.get("dangerous_arg", [0]):
@@ -292,6 +293,15 @@ class TaintAnalyzer:
                     if tr:
                         self._report(node, callee_name, tr, sink, file_path)
 
+        # 2. 对象方法调用传播（如 location.search.slice(1)）
+        if callee.get("type") == "MemberExpression":
+            obj = callee.get("object")
+            obj_trace = self._eval_expr(obj, file_path)
+            if obj_trace:
+                method = self._member_name(callee.get("property"))
+                return obj_trace + [f"经 {method}() 方法调用传播"]
+
+        # 3. sanitizer 检查
         if self._is_sanitizer(callee_name):
             for a in args:
                 self._eval_expr(a, file_path)
