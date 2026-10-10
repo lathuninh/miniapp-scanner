@@ -1,0 +1,66 @@
+name: PR Security Scan
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - "src/**"
+      - "tests/**"
+
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  security-scan:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.11"
+
+      - name: Install
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e ".[dev]"
+
+      - name: Run tests
+        run: pytest -v
+
+      - name: Self-scan
+        run: |
+          miniapp-scanner tests/fixtures/sample_miniapp --json /tmp/report.json
+          python -c "
+          import json
+          d = json.load(open('/tmp/report.json'))
+          s = d['summary']
+          print(f\"Found {s['total']} issues (high={s['high']}, medium={s['medium']}, low={s['low']})\")
+          "
+
+      - name: Comment PR
+        if: github.event_name == 'pull_request'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            let body = '## 🛡️ PR 安全扫描\n\n';
+            try {
+              const d = JSON.parse(fs.readFileSync('/tmp/report.json', 'utf8'));
+              const s = d.summary;
+              body += `| 项目 | 数值 |\n|---|---|\n`;
+              body += `| 漏洞总数 | ${s.total} |\n`;
+              body += `| 🔴 高危 | ${s.high} |\n`;
+              body += `| 🟠 中危 | ${s.medium} |\n`;
+              body += `| 🟡 低危 | ${s.low} |\n`;
+              body += `\n由 miniapp-scanner 自动生成`;
+            } catch (e) {
+              body += '扫描失败，请检查 CI 日志';
+            }
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: body
+            });
