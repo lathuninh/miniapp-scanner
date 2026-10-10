@@ -122,7 +122,13 @@ class Scanner:
         else:
             self.taint_analyzer.registry = None
 
-        for fp in self._collect_files(tp):
+        files = self._collect_files(tp)
+        try:
+            from tqdm import tqdm
+            iterator = tqdm(files, desc="Scanning", unit="file", ncols=80)
+        except ImportError:
+            iterator = files
+        for fp in iterator:
             report["files_scanned"] += 1
             report["lines_scanned"] += self._scan_file(fp, tp, report)
 
@@ -137,16 +143,6 @@ class Scanner:
         report["duration"] = round(time.time() - t0, 3)
         report["summary"] = self._summary(report["findings"])
         return report
-
-        files = self._collect_files(tp)
-        try:
-            from tqdm import tqdm
-            iterator = tqdm(files, desc="扫描中", unit="file", ncols=80)
-        except ImportError:
-            iterator = files
-        for fp in iterator:
-            report["files_scanned"] += 1
-            report["lines_scanned"] += self._scan_file(fp, tp, report)
 
     def _collect_files(self, root: Path) -> List[Path]:
         import re as _re
