@@ -101,6 +101,21 @@ sinks:
     severity: medium
     message: "Tainted data flows into openLocation"
     suggestion: "Validate coordinate ranges"
+  - name: "wx.showToast"
+    dangerous_arg: [ 0 ]
+    severity: low
+    message: "Tainted data into showToast"
+    suggestion: "Sanitize before display"
+  - name: "wx.setNavigationBarTitle"
+    dangerous_arg: [ 0 ]
+    severity: low
+    message: "Tainted data into navigation title"
+    suggestion: "Sanitize before display"
+  - name: "wx.previewImage"
+    dangerous_arg: [ 0 ]
+    severity: medium
+    message: "Tainted URL into previewImage"
+    suggestion: "Whitelist image domains"
 
 member_sinks:
   - member: "innerHTML"

@@ -273,45 +273,100 @@ rules:
       code: "eval(tainted)"
 
 
-    - id: DSL-025
-      info:
-            name: "wx.requestPayment with tainted amount"
-            severity: high
-            description: "User-controlled amount flows into payment API"
-            suggestion: "Validate amount server-side; never trust frontend"
-      dsl:
-            node: CallExpression
-            conditions:
-              - eq: [ callee.object.name, "wx" ]
-              - eq: [ callee.property.name, "requestPayment" ]
-              - arg_tainted: [ 0 ]
-            code: "wx.requestPayment(tainted)"
+  - id: DSL-025
+    info:
+        name: "wx.requestPayment with tainted amount"
+        severity: high
+        description: "User-controlled amount flows into payment API"
+        suggestion: "Validate amount server-side; never trust frontend"
+    dsl:
+        node: CallExpression
+        conditions:
+            - eq: [ callee.object.name, "wx" ]
+            - eq: [ callee.property.name, "requestPayment" ]
+            - arg_tainted: [ 0 ]
+        code: "wx.requestPayment(tainted)"
 
-    - id: DSL-026
-      info:
-            name: "wx.openLocation with tainted coords"
-            severity: medium
-            description: "User-controlled coordinates flow into openLocation"
-            suggestion: "Validate latitude/longitude ranges"
-      dsl:
-            node: CallExpression
-            conditions:
-              - eq: [ callee.object.name, "wx" ]
-              - eq: [ callee.property.name, "openLocation" ]
-              - arg_tainted: [ 0 ]
-            code: "wx.openLocation(tainted)"
+  - id: DSL-026
+    info:
+        name: "wx.openLocation with tainted coords"
+        severity: medium
+        description: "User-controlled coordinates flow into openLocation"
+        suggestion: "Validate latitude/longitude ranges"
+    dsl:
+        node: CallExpression
+        conditions:
+            - eq: [ callee.object.name, "wx" ]
+            - eq: [ callee.property.name, "openLocation" ]
+            - arg_tainted: [ 0 ]
+        code: "wx.openLocation(tainted)"
 
-    - id: DSL-027
-      info:
-            name: "wx.setClipboardData with tainted data"
-            severity: low
-            description: "User-controlled data written into clipboard"
-            suggestion: "Validate before writing to clipboard"
-      dsl:
-            node: CallExpression
-            conditions:
-              - eq: [ callee.object.name, "wx" ]
-              - eq: [ callee.property.name, "setClipboardData" ]
-              - arg_tainted: [ 0 ]
-            code: "wx.setClipboardData(tainted)"
+  - id: DSL-027
+    info:
+        name: "wx.setClipboardData with tainted data"
+        severity: low
+        description: "User-controlled data written into clipboard"
+        suggestion: "Validate before writing to clipboard"
+    dsl:
+        node: CallExpression
+        conditions:
+            - eq: [ callee.object.name, "wx" ]
+            - eq: [ callee.property.name, "setClipboardData" ]
+            - arg_tainted: [ 0 ]
+        code: "wx.setClipboardData(tainted)"
 
+  - id: DSL-030
+    info:
+        name: "Sensitive data into wx.showToast"
+        severity: low
+        description: "User data displayed in toast"
+        suggestion: "Avoid showing user-controlled data in toast"
+    dsl:
+        node: CallExpression
+        conditions:
+              - eq: [ callee.object.name, "wx" ]
+              - eq: [ callee.property.name, "showToast" ]
+              - arg_tainted: [ 0 ]
+        code: "wx.showToast(tainted)"
+
+  - id: DSL-031
+    info:
+        name: "wx.setNavigationBarTitle with tainted data"
+        severity: low
+        description: "User-controlled data written into navigation bar title"
+        suggestion: "Validate or sanitize before setting title"
+    dsl:
+        node: CallExpression
+        conditions:
+              - eq: [ callee.object.name, "wx" ]
+              - eq: [ callee.property.name, "setNavigationBarTitle" ]
+              - arg_tainted: [ 0 ]
+        code: "wx.setNavigationBarTitle(tainted)"
+
+  - id: DSL-032
+    info:
+        name: "wx.previewImage with tainted URL"
+        severity: medium
+        description: "User-controlled image URL previewed"
+        suggestion: "Whitelist image domains"
+    dsl:
+        node: CallExpression
+        conditions:
+              - eq: [ callee.object.name, "wx" ]
+              - eq: [ callee.property.name, "previewImage" ]
+              - arg_tainted: [ 0 ]
+        code: "wx.previewImage(tainted)"
+
+  - id: DSL-033
+    info:
+        name: "wx.setEnableDebug with tainted value"
+        severity: high
+        description: "User-controlled debug flag setting"
+        suggestion: "Never let user control debug mode"
+    dsl:
+        node: CallExpression
+        conditions:
+              - eq: [ callee.object.name, "wx" ]
+              - eq: [ callee.property.name, "setEnableDebug" ]
+              - arg_tainted: [ 0 ]
+        code: "wx.setEnableDebug(tainted)"
