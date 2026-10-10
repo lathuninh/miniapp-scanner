@@ -1,3 +1,6 @@
+📝 [详细介绍文章：从零构建微信小程序安全扫描器](https://juejin.cn/post/7694595110122045483)
+
+# miniapp-scanner
 [![CI](https://github.com/lathuninh/miniapp-scanner/actions/workflows/ci.yml/badge.svg)](https://github.com/lathuninh/miniapp-scanner/actions/workflows/ci.yml)
 
 # miniapp-scanner
