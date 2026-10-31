@@ -200,16 +200,40 @@ class Scanner:
         except Exception:
             return 0
 
-        # ★ Vue SFC 特殊处理：提取 <script> 内容
+        # ★ Vue SFC 特殊处理
         if fp.suffix == ".vue":
             import re
+            rel_path = str(fp.relative_to(root)) if root.is_dir() else fp.name
+
+            # 1. 检测 <template> 里的 v-html 带来的 XSS（正则简单提取）
+            template_match = re.search(r"<template>(.*?)</template>", text, re.DOTALL)
+            if template_match:
+                template_content = template_match.group(1)
+                # 查找使用了 v-html 且绑定了变量的标签
+                v_html_matches = re.finditer(r'<[^>]+v-html\s*=\s*["\']([^"\']+)["\'][^>]*>', template_content)
+                for match in v_html_matches:
+                    binding_var = match.group(1)
+                    # 将提取到的绑定表达式构造成一条 findings 塞入报告
+                    report["findings"].append({
+                        "rule_id": "VUE-XSS-001",
+                        "rule_name": "Vue Template v-html XSS",
+                        "severity": "high",
+                        "file": rel_path,
+                        "line": text[:text.find(match.group(0))].count("\n") + 1,
+                        "code": match.group(0)[:100],
+                        "description": f"v-html binds to expression '{binding_var}', potential XSS if un-sanitized.",
+                        "suggestion": "Avoid v-html. Use v-text or sanitize with DOMPurify.",
+                        "engine": "regex",
+                        "trace": [f"Template binding: {binding_var}"]
+                    })
+
+            # 2. 提取 <script> 内容，继续交给 JS 引擎
             script_match = re.search(r"<script[^>]*>(.*?)</script>", text, re.DOTALL)
             if script_match:
                 text = script_match.group(1)
             else:
                 return 0
 
-        text = self.obf.preprocess(text, str(fp))
         text = self.obf.preprocess(text, str(fp))
         rel = str(fp.relative_to(root)) if root.is_dir() else fp.name
         lines = text.splitlines()
