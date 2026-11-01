@@ -1,10 +1,11 @@
 """扫描器主流程。"""
-import os
 import re
 import time
+import os
 from pathlib import Path
 from datetime import datetime
 from typing import Dict, List, Optional
+from concurrent.futures import ProcessPoolExecutor
 
 import yaml
 
@@ -14,6 +15,21 @@ from .engine.obfuscation_preprocessor import ObfuscationPreprocessor
 from .engine.rule_dsl import RuleDSL
 from .engine.taint_analyzer import TaintAnalyzer
 from .engine.wxapkg_unpacker import WxapkgUnpacker
+
+# ================= tree-sitter 预检引擎 =================
+import tree_sitter_javascript as tsjs
+from tree_sitter import Language, Parser
+
+JS_LANG = Language(tsjs.language())
+TS_PARSER = Parser(JS_LANG)
+USE_PRE_CHECK = os.environ.get("FULL_SCAN") != "1"
+
+PRE_CHECK_KEYWORDS = [
+    b"eval", b"wx.request", b"__proto__", b"innerHTML", b"setStorageSync", b"navigateTo",
+    b"secretKey", b"accessKey", b"password", b"token", b"mysql://", b"mongodb://",
+    b"require", b"import", b"export", b"v-html"
+]
+# ========================================================
 
 DEFAULT_RULES_DIR = Path(__file__).parent / "rules"
 
@@ -37,7 +53,7 @@ class Scanner:
             if yaml_file.name == "taint.yaml":
                 continue
             try:
-                data = yaml.safe_load(yaml_file.read_text(encoding="utf-8")) or {}
+                data = yaml.safe_load(yaml_file.read_text(encoding="utf-8-sig")) or {}
             except Exception:
                 continue
             rules = data.get("rules", [])
@@ -63,36 +79,21 @@ class Scanner:
         ]
 
     def _detect_project_type(self, root: Path) -> str:
-        """检测项目类型：miniapp / web / node / unknown"""
-        # Taro 项目
         if (root / "package.json").exists():
             try:
                 import json
                 pkg = json.loads((root / "package.json").read_text(encoding="utf-8-sig"))
                 deps = {**pkg.get("dependencies", {}), **pkg.get("devDependencies", {})}
-                if "@tarojs/taro" in deps:
-                    return "taro"
-                if "@dcloudio/uni-app" in deps:
-                    return "uni-app"
+                if "@tarojs/taro" in deps: return "taro"
+                if "@dcloudio/uni-app" in deps: return "uni-app"
             except Exception:
-                pass   # 解析失败就当不是 Taro
-        if not root.is_dir():
-            return "unknown"
-        if (root / "app.json").exists() and (root / "pages").exists():
-            return "miniapp"
-        if (root / "pages").exists() and (
-                (root / "app.wxss").exists() or (root / "app.js").exists()
-        ):
-            return "miniapp"
+                pass
+        if not root.is_dir(): return "unknown"
+        if (root / "app.json").exists() and (root / "pages").exists(): return "miniapp"
+        if (root / "pages").exists() and ((root / "app.wxss").exists() or (root / "app.js").exists()): return "miniapp"
         if (root / "package.json").exists() and (
-                (root / "index.html").exists()
-                or (root / "app" / "index.html").exists()
-        ):
-            # Web 应用特征：index.html + 任意 JS 文件
-            if (root / "index.html").exists() or (root / "app" / "index.html").exists():
-                return "web"
-        if (root / "package.json").exists():
-            return "node"
+                (root / "index.html").exists() or (root / "app" / "index.html").exists()): return "web"
+        if (root / "package.json").exists(): return "node"
         return "unknown"
 
     def scan(self, target: str, output_dir: Optional[str] = None) -> Dict:
@@ -100,35 +101,27 @@ class Scanner:
         if tp.suffix == ".wxapkg":
             unpacker = WxapkgUnpacker()
             unpacked = unpacker.unpack(str(tp), output_dir)
-            if not unpacked:
-                raise RuntimeError("解包失败")
+            if not unpacked: raise RuntimeError("解包失败")
             tp = Path(unpacked)
 
         t0 = time.time()
-
-        # 检测项目类型
         project_type = self._detect_project_type(tp)
         if project_type == "web":
-            print("⚠️  检测到 Web 应用（非微信小程序），部分小程序规则可能不适用")
-
+            print("[WARN] Web project detected.")
         elif project_type == "taro":
-            print("ℹ️  检测到 Taro 项目，已启用 Taro API 规则")
+            print("[INFO] Taro project detected.")
         elif project_type == "uni-app":
-            print("ℹ️  检测到 uni-app 项目，已启用 uni API 规则")
+            print("[INFO] uni-app project detected.")
         elif project_type == "node":
-            print("⚠️  检测到 Node 项目，可能不是小程序源码")
+            print("[WARN] Node project detected.")
         elif project_type == "unknown":
-            print("⚠️  未能识别项目类型，按通用规则扫描")
+            print("[WARN] Project type not recognized.")
 
         report = {
-            "target": str(tp),
-            "project_type": project_type,
+            "target": str(tp), "project_type": project_type,
             "start_time": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
-            "files_scanned": 0,
-            "lines_scanned": 0,
-            "findings": [],
-            "duration": 0.0,
-            "obfuscated_files": [],
+            "files_scanned": 0, "lines_scanned": 0,
+            "findings": [], "duration": 0.0, "obfuscated_files": [],
         }
 
         if tp.is_dir():
@@ -145,6 +138,8 @@ class Scanner:
             iterator = tqdm(files, desc="Scanning", unit="file", ncols=80)
         except ImportError:
             iterator = files
+
+        # ★ 修复：直接调用 self._scan_file
         for fp in iterator:
             report["files_scanned"] += 1
             report["lines_scanned"] += self._scan_file(fp, tp, report)
@@ -153,9 +148,7 @@ class Scanner:
         order = {"high": 0, "medium": 1, "low": 2, "info": 3}
         eng = {"taint": 0, "dsl": 1, "ast": 2, "regex": 3}
         report["findings"].sort(key=lambda f: (
-            order.get(f["severity"], 9),
-            eng.get(f["engine"], 9),
-            f["file"], f["line"],
+            order.get(f["severity"], 9), eng.get(f["engine"], 9), f["file"], f["line"],
         ))
         report["duration"] = round(time.time() - t0, 3)
         report["summary"] = self._summary(report["findings"])
@@ -166,68 +159,58 @@ class Scanner:
         if root.is_file():
             return [root] if root.suffix in self.SCAN_EXT else []
         EXCLUDE_DIRS = {"node_modules", ".git", "dist", "wxParse", "__MACOSX"}
-        EXCLUDE_FILE_PATTERNS = [
-            r"\.min\.js$",
-            r"[/\\]runtime\.js$",
-            r"\.bundle\.js$",
-            r"[/\\]showdown\.js$",
-            r"weapp\.qrcode.*\.js$",
-        ]
-        MAX_FILE_SIZE = 500 * 1024        # ★ 新增：跳过 500KB+ 的文件
+        EXCLUDE_FILE_PATTERNS = [r"\.min\.js$", r"[/\\]runtime\.js$", r"\.bundle\.js$", r"[/\\]showdown\.js$",
+                                 r"weapp\.qrcode.*\.js$"]
+        MAX_FILE_SIZE = 500 * 1024
         result: List[Path] = []
         for dirpath, dirnames, filenames in os.walk(root):
             dirnames[:] = [d for d in dirnames if d not in EXCLUDE_DIRS]
             for fn in filenames:
                 fp = Path(dirpath) / fn
-                if fp.suffix not in self.SCAN_EXT:  # SCAN_EXT = {".js", ".json", ".ts"}
-                    continue
+                if fp.suffix not in self.SCAN_EXT: continue
                 try:
-                    if fp.stat().st_size > MAX_FILE_SIZE:      # ★ 跳过超大文件
-                        continue
+                    if fp.stat().st_size > MAX_FILE_SIZE: continue
                 except Exception:
                     continue
                 rel = str(fp.relative_to(root)) if root.is_dir() else fn
-                if any(_re.search(p, rel) for p in EXCLUDE_FILE_PATTERNS):
-                    continue
+                if any(_re.search(p, rel) for p in EXCLUDE_FILE_PATTERNS): continue
                 result.append(fp)
         return result
 
     def _scan_file(self, fp: Path, root: Path, report: Dict) -> int:
         try:
-            # 用内存映射或更快读取
             with open(fp, "r", encoding="utf-8", errors="ignore") as f:
                 text = f.read()
         except Exception:
             return 0
 
-        # ★ Vue SFC 特殊处理
-        if fp.suffix == ".vue":
-            import re
-            rel_path = str(fp.relative_to(root)) if root.is_dir() else fp.name
+        rel = str(fp.relative_to(root)) if root.is_dir() else fp.name
 
-            # 1. 检测 <template> 里的 v-html 带来的 XSS（正则简单提取）
+        # ================= 1. 极速预检 =================
+        if fp.suffix in self.JS_EXT and USE_PRE_CHECK:
+            text_bytes = text.encode('utf-8')
+            tree = TS_PARSER.parse(text_bytes)
+            if tree.root_node.has_error:
+                return 0  # 语法错误（如压缩代码），跳过
+            if not any(kw in text_bytes for kw in PRE_CHECK_KEYWORDS):
+                return 0  # 没有危险关键词，跳过
+
+        # ================= 2. Vue SFC 处理 =================
+        if fp.suffix == ".vue":
             template_match = re.search(r"<template>(.*?)</template>", text, re.DOTALL)
             if template_match:
                 template_content = template_match.group(1)
-                # 查找使用了 v-html 且绑定了变量的标签
                 v_html_matches = re.finditer(r'<[^>]+v-html\s*=\s*["\']([^"\']+)["\'][^>]*>', template_content)
                 for match in v_html_matches:
                     binding_var = match.group(1)
-                    # 将提取到的绑定表达式构造成一条 findings 塞入报告
                     report["findings"].append({
-                        "rule_id": "VUE-XSS-001",
-                        "rule_name": "Vue Template v-html XSS",
-                        "severity": "high",
-                        "file": rel_path,
-                        "line": text[:text.find(match.group(0))].count("\n") + 1,
+                        "rule_id": "VUE-XSS-001", "rule_name": "Vue Template v-html XSS", "severity": "high",
+                        "file": rel, "line": text[:text.find(match.group(0))].count("\n") + 1,
                         "code": match.group(0)[:100],
                         "description": f"v-html binds to expression '{binding_var}', potential XSS if un-sanitized.",
                         "suggestion": "Avoid v-html. Use v-text or sanitize with DOMPurify.",
-                        "engine": "regex",
-                        "trace": [f"Template binding: {binding_var}"]
+                        "engine": "regex", "trace": [f"Template binding: {binding_var}"]
                     })
-
-            # 2. 提取 <script> 内容，继续交给 JS 引擎
             script_match = re.search(r"<script[^>]*>(.*?)</script>", text, re.DOTALL)
             if script_match:
                 text = script_match.group(1)
@@ -235,41 +218,33 @@ class Scanner:
                 return 0
 
         text = self.obf.preprocess(text, str(fp))
-        rel = str(fp.relative_to(root)) if root.is_dir() else fp.name
         lines = text.splitlines()
         existing = {(f["rule_id"], f["file"], f["line"]) for f in report["findings"]}
 
+        # ================= 3. 正则扫描 =================
         for rule, pat, fpat in self._compiled_regex:
-            if not fpat.match(rel):
-                continue
-            # 快速预筛：先找关键词
+            if not fpat.match(rel): continue
             for m in pat.finditer(text):
                 line_no = text[:m.start()].count("\n") + 1
                 key = (rule["id"], rel, line_no)
-                if key in existing:
-                    continue
+                if key in existing: continue
                 existing.add(key)
                 snippet = lines[line_no - 1].strip() if line_no - 1 < len(lines) else m.group(0)
                 report["findings"].append({
-                    "rule_id": rule["id"],
-                    "rule_name": rule["info"]["name"],
-                    "severity": rule["info"]["severity"],
-                    "file": rel, "line": line_no,
-                    "code": snippet[:160],
-                    "description": rule["info"]["description"],
-                    "suggestion": rule["info"]["suggestion"],
+                    "rule_id": rule["id"], "rule_name": rule["info"]["name"], "severity": rule["info"]["severity"],
+                    "file": rel, "line": line_no, "code": snippet[:160],
+                    "description": rule["info"]["description"], "suggestion": rule["info"]["suggestion"],
                     "engine": "regex", "trace": [],
                 })
 
         if fp.suffix not in self.JS_EXT:
             return len(lines)
 
-        # 复用 ModuleGraph 已解析的 AST（如果有）
+        # ================= 4. 污点分析 + AST =================
         taint_findings = self.taint_analyzer.analyze(text, rel)
         for tf in taint_findings:
             key = (tf["rule_id"], tf["file"], tf["line"])
-            if key in existing:
-                continue
+            if key in existing: continue
             existing.add(key)
             report["findings"].append(tf)
 
@@ -282,8 +257,7 @@ class Scanner:
         )
         for af in ast_findings:
             key = (af["rule_id"], af["file"], af["line"])
-            if key in existing:
-                continue
+            if key in existing: continue
             existing.add(key)
             af.setdefault("trace", [])
             report["findings"].append(af)
@@ -294,8 +268,7 @@ class Scanner:
     def _summary(findings: List[Dict]) -> Dict:
         s = {"total": len(findings), "high": 0, "medium": 0, "low": 0, "info": 0}
         for f in findings:
-            if f["severity"] in s:
-                s[f["severity"]] += 1
+            if f["severity"] in s: s[f["severity"]] += 1
         return s
 
 
@@ -320,7 +293,7 @@ class ReportGenerator:
                f"  扫描时间 : {report['start_time']}   耗时: {report['duration']}s",
                f"  文件数   : {report['files_scanned']}   代码行数: {report['lines_scanned']}",
                "-" * 72,
-                f"  漏洞总数 : {s['total']}   🔴 {s['high']}   🟠 {s['medium']}   🟡 {s['low']}   ⚪ {s.get('info', 0)}",
+               f"  漏洞总数 : {s['total']}   🔴 {s['high']}   🟠 {s['medium']}   🟡 {s['low']}   ⚪ {s.get('info', 0)}",
                "=" * 72]
         if report.get("obfuscated_files"):
             out.append(f"  ⚠️  检测到 {len(report['obfuscated_files'])} 个混淆文件")
@@ -348,4 +321,3 @@ class ReportGenerator:
                                f"(置信度 {tr['confidence']}) — {tr['reason']}")
         out.append("\n" + "=" * 72)
         return "\n".join(out)
-
