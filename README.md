@@ -7,6 +7,7 @@
 📝 [第三篇：从 0 到 GitHub Marketplace：一个安全工具的开源全记录](https://juejin.cn/post/7697162867456114703)
 📝 [第四篇：从微信小程序到全端：一个安全扫描器的演进之路](https://juejin.cn/post/7697569354293051427)
 📝 [第五篇：用 AI 驱动安全审计：我是如何用自己写的工具扫 4 万行真实商业代码的](https://juejin.cn/post/7700511283238780991)
+📝 [第六篇：纯 Python 性能优化的极限探讨：从 138 秒到 122 秒，再到 3 秒的狂想](https://juejin.cn/post/7702759616728350755)
 # miniapp-scanner
 [![CI](https://github.com/lathuninh/miniapp-scanner/actions/workflows/ci.yml/badge.svg)](https://github.com/lathuninh/miniapp-scanner/actions/workflows/ci.yml)
 
